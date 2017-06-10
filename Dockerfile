@@ -16,6 +16,8 @@ ENV SESSIONNAME="Ark Docker" \
 
 # Install dependencies
 RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get dist-upgrade -y && \
     apt-get install -y curl lib32gcc1 lsof git
 
 # Enable passwordless sudo for users under the "sudo" group
