@@ -1,0 +1,11 @@
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+      {{range .ssh_keys}}
+      - {{.}}
+      {{end}}
+locksmith:
+  reboot_strategy: "reboot"
+  window_start: "02:30"
+  window_length: "2h"
