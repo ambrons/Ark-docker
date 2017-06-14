@@ -37,7 +37,6 @@ RUN usermod -a -G sudo steam
 # Copy & rights to folders
 COPY run.sh /home/steam/run.sh
 COPY user.sh /home/steam/user.sh
-COPY crontab /home/steam/crontab
 COPY arkmanager-user.cfg /home/steam/arkmanager.cfg
 
 RUN touch /root/.bash_profile \
@@ -49,9 +48,6 @@ RUN curl -sL https://raw.githubusercontent.com/FezVrasta/ark-server-tools/master
   && chmod +x /tmp/ark-server-tools.sh  \
   && /tmp/ark-server-tools.sh steam \
   && rm /tmp/ark-server-tools.sh
-
-# Allow crontab to call arkmanager
-RUN ln -s /usr/local/bin/arkmanager /usr/bin/arkmanager
 
 # Define default config file in /etc/arkmanager
 COPY arkmanager-system.cfg /etc/arkmanager/arkmanager.cfg

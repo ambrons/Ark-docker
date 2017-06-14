@@ -12,6 +12,7 @@ locksmith:
 systemd:
   units:
     - name: ark.service
+      enable: true
       contents: |
         [Unit]
         Description=Ark Server
@@ -40,5 +41,38 @@ systemd:
         quay.io/rhild/ark-docker
         ExecStop=-/usr/bin/docker exec ark arkmanager stop --saveworld
         ExecStop=-/usr/bin/docker kill ark
+        [Install]
+        WantedBy=multi-user.target
+    - name: arksafeupdate.service
+      contents: |
+        [Unit]
+        Description=Updates Ark if nobody is connected.
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/bin/docker exec ark arkmanager update --ifempty --update-mods
+    - name: arkfastupdate.timer
+      enable: true
+      contents: |
+        [Unit]
+        Description=Check for Ark updates every 15 minutes.
+        [Timer]
+        OnCalendar=*:0/15
+        [Install]
+        WantedBy=multi-user.target
+    - name: arkdaily.service
+      contents: |
+        [Unit]
+        Description=Backs up and updates Ark every day.
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/bin/docker exec ark arkmanager backup
+        ExecStart=/usr/bin/docker exec ark arkmanager update --warn --update-mods
+    - name: arkdaily.timer
+      enable: true
+      contents: |
+        [Unit]
+        Description=Check for Ark updates every day at 2:30 am.
+        [Timer]
+        OnCalendar=02:30
         [Install]
         WantedBy=multi-user.target
