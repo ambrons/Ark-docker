@@ -9,3 +9,36 @@ locksmith:
   reboot_strategy: "reboot"
   window_start: "02:30"
   window_length: "2h"
+systemd:
+  units:
+    - name: ark.service
+      contents: |
+        [Unit]
+        Description=Ark Server
+        After=docker.service
+        Requires=docker.service
+        [Service]
+        TimeoutStartSec=0
+        TimeoutStopSec=120
+        ExecStartPre=-/usr/bin/docker kill ark
+        ExecStartPre=-/usr/bin/docker rm ark
+        ExecStart=/usr/bin/docker run \
+        --publish 7778:7778 \
+        --publish 7778:7778/udp \
+        --publish 27015:27015 \
+        --publish 27015:27015/udp \
+        --publish 32330:32330 \
+        --env SESSIONNAME="{{ark.name}}" \
+        --env SERVERPASSWORD="{{ark.password}}" \
+        --env ADMINPASSWORD="{{ark.admin}}" \
+        --env AUTOUPDATE=120 \
+        --env AUTOBACKUP=60 \
+        --env WARNMINUTE=30 \
+        --env NBPLAYERS={{ark.players}} \
+        --volume /var/ark:/ark \
+        --name ark \
+        quay.io/rhild/ark-docker
+        ExecStop=-/usr/bin/docker exec ark arkmanager stop --saveworld
+        ExecStop=-/usr/bin/docker kill ark
+        [Install]
+        WantedBy=multi-user.target
