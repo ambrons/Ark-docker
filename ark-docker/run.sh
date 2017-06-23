@@ -2,74 +2,101 @@
 echo "###########################################################################"
 echo "# Ark Server - " `date`
 echo "# UID $UID - GID $GID"
+echo "# Args: '$@'"
 echo "###########################################################################"
-[ -p /tmp/FIFO ] && rm /tmp/FIFO
-mkfifo /tmp/FIFO
 
 export TERM=linux
 
-function stop {
-	if [ ${BACKUPONSTOP} -eq 1 ] && [ "$(ls -A server/ShooterGame/Saved/SavedArks)" ]; then
-		echo "[Backup on stop]"
-		arkmanager backup
+function setup_ark_data() {
+	# Creating directory tree && symbolic link
+	[ ! -f /ark/arkmanager.cfg ] && cp /home/steam/arkmanager.cfg /ark/arkmanager.cfg
+	[ ! -d /ark/log ] && mkdir /ark/log
+	[ ! -d /ark/backup ] && mkdir /ark/backup
+	[ ! -d /ark/staging ] && mkdir /ark/staging
+	[ ! -L /ark/Game.ini ] && ln -s server/ShooterGame/Saved/Config/LinuxServer/Game.ini Game.ini
+	[ ! -L /ark/GameUserSettings.ini ] && ln -s server/ShooterGame/Saved/Config/LinuxServer/GameUserSettings.ini GameUserSettings.ini
+
+	if [ ! -d /ark/server  ] || [ ! -f /ark/server/version.txt ]; then
+		echo "No game files found. Installing..."
+		mkdir -p /ark/server/ShooterGame/Saved/SavedArks
+		mkdir -p /ark/server/ShooterGame/Content/Mods
+		mkdir -p /ark/server/ShooterGame/Binaries/Linux/
+		touch /ark/server/ShooterGame/Binaries/Linux/ShooterGameServer
+		arkmanager install
 	fi
-	if [ ${WARNONSTOP} -eq 1 ];then
-	    arkmanager stop --warn
-	else
-	    arkmanager stop
-	fi
-	exit
 }
 
-
-
-# Change working directory to /ark to allow relative path
-cd /ark
-
-# Add a template directory to store the last version of config file
-[ ! -d /ark/template ] && mkdir /ark/template
-# We overwrite the template file each time
-cp /home/steam/arkmanager.cfg /ark/template/arkmanager.cfg
-cp /home/steam/crontab /ark/template/crontab
-# Creating directory tree && symbolic link
-[ ! -f /ark/arkmanager.cfg ] && cp /home/steam/arkmanager.cfg /ark/arkmanager.cfg
-[ ! -d /ark/log ] && mkdir /ark/log
-[ ! -d /ark/backup ] && mkdir /ark/backup
-[ ! -d /ark/staging ] && mkdir /ark/staging
-[ ! -L /ark/Game.ini ] && ln -s server/ShooterGame/Saved/Config/LinuxServer/Game.ini Game.ini
-[ ! -L /ark/GameUserSettings.ini ] && ln -s server/ShooterGame/Saved/Config/LinuxServer/GameUserSettings.ini GameUserSettings.ini
-[ ! -f /ark/crontab ] && cp /ark/template/crontab /ark/crontab
-
-
-
-if [ ! -d /ark/server  ] || [ ! -f /ark/server/arkversion ];then
-	echo "No game files found. Installing..."
-	mkdir -p /ark/server/ShooterGame/Saved/SavedArks
-	mkdir -p /ark/server/ShooterGame/Content/Mods
-	mkdir -p /ark/server/ShooterGame/Binaries/Linux/
-	touch /ark/server/ShooterGame/Binaries/Linux/ShooterGameServer
-	arkmanager install
-	# Create mod dir
-else
-
+function wrapped_start() {
 	if [ ${BACKUPONSTART} -eq 1 ] && [ "$(ls -A server/ShooterGame/Saved/SavedArks/)" ]; then
 		echo "[Backup]"
-		arkmanager backup
+		main backup
 	fi
-fi
 
-# Launching ark server
-if [ $UPDATEONSTART -eq 0 ]; then
-	arkmanager start -noautoupdate
-else
-	arkmanager start
-fi
+	# Run in the foreground:
+	local start_args="$@"
+	if [ $UPDATEONSTART -eq 0 ]; then
+		start_args="--noautoupdate $start_args"
+	fi
+	# Launching ark server
+	main start "$start_args"
+}
 
+function wrapped_stop() {
+	if [ ${BACKUPONSTOP} -eq 1 ] && [ "$(ls -A server/ShooterGame/Saved/SavedArks)" ]; then
+		echo "[Backup on stop]"
+		main backup
+	fi
+	if [ ${WARNONSTOP} -eq 1 ];then
+		main stop --warn "$@"
+	else
+		main stop "$@"
+	fi
+}
 
-# Stop server in case of signal INT or TERM
-echo "Waiting..."
-trap stop INT
-trap stop TERM
+function discord_message() {
+	curl $(cat /ark/discord.json | jq -r '.webhookURL') \
+		--data "{\"content\":\"$1\"}"
+}
 
-read < /tmp/FIFO &
-wait
+function wrapped_update() {
+	echo "Querying Steam database for latest version..."
+
+	players=$(numPlayersConnected)
+  if isUpdateNeeded; then
+		if [[ "$players" == "0" ]]; then
+			discord_message "Current version: $instver\nAvailable version: $bnumber\nUpdating now (nobody is online)"
+			main update "$@"
+		else
+			discord_message "Current version: $instver\nAvailable version: $bnumber\nUpdating later ($players online)"
+			main update --warn "$@"
+		fi
+	else
+		echo "Server is up to date ($instver == $bnumber)"
+	fi
+}
+
+function wrapped_main() {
+	command="$1"
+	shift
+
+	case "$command" in
+		start)
+			wrapped_start "$@"
+		;;
+		stop)
+			wrapped_stop "$@"
+		;;
+		update)
+			wrapped_update "$@"
+		;;
+		*)
+			main "$command" "$@"
+		;;
+	esac
+}
+
+setup_ark_data
+
+source $(which arkmanager)
+
+wrapped_main "$@"

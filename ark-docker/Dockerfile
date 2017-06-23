@@ -12,70 +12,47 @@ ENV SESSIONNAME="Ark Docker" \
   BACKUPONSTOP=0 \
   WARNONSTOP=0 \
   UID=1000 \
-  GID=1000
+  GID=1000 \
+  MESSAGE_BOT_CONFIG_FILE=/ark/message-bot.yaml
 
 # Install dependencies
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get dist-upgrade -y && \
-    apt-get install -y curl lib32gcc1 lsof git
-
-# Enable passwordless sudo for users under the "sudo" group
-RUN sed -i.bkp -e \
-	's/%sudo\s\+ALL=(ALL\(:ALL\)\?)\s\+ALL/%sudo ALL=NOPASSWD:ALL/g' /etc/sudoers \
-	/etc/sudoers
-
-# Run commands as the steam user
-RUN adduser \
-	--disabled-login \
-	--shell /bin/bash \
-	--gecos "" \
-	steam
-# Add to sudo group
-RUN usermod -a -G sudo steam
+RUN apt-get update \
+  && apt-get install -y \
+     curl \
+     lib32gcc1 \
+     lsof \
+     git \
+     ca-certificates \
+     jq \
+  && sed -i.bkp -e 's/%sudo\s\+ALL=(ALL\(:ALL\)\?)\s\+ALL/%sudo ALL=NOPASSWD:ALL/g' /etc/sudoers /etc/sudoers \
+  && adduser --disabled-login --shell /bin/bash --gecos "" steam \
+  && usermod -a -G sudo steam \
+  && touch /root/.bash_profile \
+  && mkdir /ark \
+  && chown steam -R /ark \
+  && chmod 755 -R /ark \
+  && curl -sL https://raw.githubusercontent.com/FezVrasta/ark-server-tools/master/netinstall.sh > /tmp/ark-server-tools.sh \
+  && chmod +x /tmp/ark-server-tools.sh \
+  && /tmp/ark-server-tools.sh steam \
+  && rm /tmp/ark-server-tools.sh \
+  && mkdir /home/steam/steamcmd \
+  && cd /home/steam/steamcmd \
+  && curl http://media.steampowered.com/installer/steamcmd_linux.tar.gz | tar -vxz
 
 # Copy & rights to folders
 COPY run.sh /home/steam/run.sh
 COPY user.sh /home/steam/user.sh
 COPY arkmanager-user.cfg /home/steam/arkmanager.cfg
 
-RUN touch /root/.bash_profile \
-  && chmod 777 /home/steam/run.sh \
-  && chmod 777 /home/steam/user.sh \
-  && mkdir /ark
-
-RUN curl -sL https://raw.githubusercontent.com/FezVrasta/ark-server-tools/master/netinstall.sh > /tmp/ark-server-tools.sh \
-  && chmod +x /tmp/ark-server-tools.sh  \
-  && /tmp/ark-server-tools.sh steam \
-  && rm /tmp/ark-server-tools.sh
-
-# Define default config file in /etc/arkmanager
+# Define default config files in /etc/arkmanager
 COPY arkmanager-system.cfg /etc/arkmanager/arkmanager.cfg
-
-# Define default config file in /etc/arkmanager
 COPY instance.cfg /etc/arkmanager/instances/main.cfg
 
-RUN chown steam -R /ark && chmod 755 -R /ark
-
-#USER steam
-
-# download steamcmd
-RUN mkdir /home/steam/steamcmd &&\
-	cd /home/steam/steamcmd &&\
-	curl http://media.steampowered.com/installer/steamcmd_linux.tar.gz | tar -vxz
-
-# First run is on anonymous to download the app
-# We can't download from docker hub anymore -_-
-#RUN /home/steam/steamcmd/steamcmd.sh +login anonymous +quit
-
 EXPOSE ${STEAMPORT} 32330 ${SERVERPORT}
-# Add UDP
 EXPOSE ${STEAMPORT}/udp ${SERVERPORT}/udp
 
-VOLUME  /ark
+VOLUME /ark
 
-# Change the working directory to /arkd
 WORKDIR /ark
-
-# Update game launch the game.
 ENTRYPOINT ["/home/steam/user.sh"]
+CMD ["start","--no-background"]
