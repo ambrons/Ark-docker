@@ -4,8 +4,10 @@ echo "# Ark Server - " `date`
 echo "# UID $UID - GID $GID"
 echo "# Args: '$@'"
 echo "###########################################################################"
+set -eux
 
 export TERM=linux
+cd /ark
 
 function setup_ark_data() {
 	# Creating directory tree && symbolic link
@@ -27,9 +29,9 @@ function setup_ark_data() {
 }
 
 function wrapped_start() {
-	if [ ${BACKUPONSTART} -eq 1 ] && [ "$(ls -A server/ShooterGame/Saved/SavedArks/)" ]; then
+	if [ ${BACKUPONSTART} -eq 1 ]; then
 		echo "[Backup]"
-		main backup
+		arkmanager backup
 	fi
 
 	# Run in the foreground:
@@ -38,18 +40,18 @@ function wrapped_start() {
 		start_args="--noautoupdate $start_args"
 	fi
 	# Launching ark server
-	main start "$start_args"
+	arkmanager start "$start_args"
 }
 
 function wrapped_stop() {
-	if [ ${BACKUPONSTOP} -eq 1 ] && [ "$(ls -A server/ShooterGame/Saved/SavedArks)" ]; then
+	if [ ${BACKUPONSTOP} -eq 1 ]; then
 		echo "[Backup on stop]"
-		main backup
+		arkmanager backup
 	fi
 	if [ ${WARNONSTOP} -eq 1 ];then
 		main stop --warn "$@"
 	else
-		main stop "$@"
+		arkmanager stop "$@"
 	fi
 }
 
@@ -65,10 +67,10 @@ function wrapped_update() {
   if isUpdateNeeded; then
 		if [[ "$players" == "0" ]]; then
 			discord_message "Current version: $instver\nAvailable version: $bnumber\nUpdating now (nobody is online)"
-			main update "$@"
+			arkmanager update "$@"
 		else
 			discord_message "Current version: $instver\nAvailable version: $bnumber\nUpdating later ($players online)"
-			main update --warn "$@"
+			arkmanager update --warn "$@"
 		fi
 	else
 		echo "Server is up to date ($instver == $bnumber)"
@@ -90,13 +92,11 @@ function wrapped_main() {
 			wrapped_update "$@"
 		;;
 		*)
-			main "$command" "$@"
+			arkmanager "$command" "$@"
 		;;
 	esac
 }
 
 setup_ark_data
-
-source $(which arkmanager)
 
 wrapped_main "$@"

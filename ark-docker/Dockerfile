@@ -55,4 +55,4 @@ VOLUME /ark
 
 WORKDIR /ark
 ENTRYPOINT ["/home/steam/user.sh"]
-CMD ["start","--no-background"]
+CMD ["run"]
