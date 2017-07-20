@@ -13,6 +13,8 @@ function setup_ark_data() {
 	# Creating directory tree && symbolic link
 	[ ! -f /ark/arkmanager.cfg ] && cp /home/steam/arkmanager.cfg /ark/arkmanager.cfg
 	[ ! -d /ark/log ] && mkdir /ark/log
+	[ ! -f /ark/log/arkserver.log ] && touch /ark/log/arkserver.log
+        [ ! -f /ark/log/arkmanager.log ] && touch /ark/log/arkmanager.log
 	[ ! -d /ark/backup ] && mkdir /ark/backup
 	[ ! -d /ark/staging ] && mkdir /ark/staging
 	[ ! -L /ark/Game.ini ] && ln -s server/ShooterGame/Saved/Config/LinuxServer/Game.ini Game.ini
@@ -46,6 +48,7 @@ function wrapped_start() {
 function wrapped_stop() {
 	if [ ${BACKUPONSTOP} -eq 1 ]; then
 		echo "[Backup on stop]"
+		arkmanager saveworld
 		arkmanager backup
 	fi
 	if [ ${WARNONSTOP} -eq 1 ];then
