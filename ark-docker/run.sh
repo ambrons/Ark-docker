@@ -102,4 +102,4 @@ function wrapped_main() {
 
 setup_ark_data
 
-"$@"
+wrapped_main "$@"
