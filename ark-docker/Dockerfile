@@ -1,4 +1,4 @@
-FROM ubuntu:14.04
+FROM ubuntu:16.04
 
 ENV SESSIONNAME="Ark Docker" \
   SERVERMAP="TheIsland" \
@@ -24,6 +24,11 @@ RUN apt-get update \
      git \
      ca-certificates \
      jq \
+     sudo \
+     perl-modules \
+     libc6-i386 \
+     bzip2 \
+     supervisor \
   && sed -i.bkp -e 's/%sudo\s\+ALL=(ALL\(:ALL\)\?)\s\+ALL/%sudo ALL=NOPASSWD:ALL/g' /etc/sudoers /etc/sudoers \
   && adduser --disabled-login --shell /bin/bash --gecos "" steam \
   && usermod -a -G sudo steam \
@@ -41,9 +46,9 @@ RUN apt-get update \
 
 # Copy & rights to folders
 COPY run.sh /home/steam/run.sh
-COPY user.sh /home/steam/user.sh
 COPY arkmanager-user.cfg /home/steam/arkmanager.cfg
-
+COPY supervisord.ini /etc/supervisor/conf.d/ark.conf
+COPY entrypoint.sh /
 # Define default config files in /etc/arkmanager
 COPY arkmanager-system.cfg /etc/arkmanager/arkmanager.cfg
 COPY instance.cfg /etc/arkmanager/instances/main.cfg
@@ -54,5 +59,5 @@ EXPOSE ${STEAMPORT}/udp ${SERVERPORT}/udp
 VOLUME /ark
 
 WORKDIR /ark
-ENTRYPOINT ["/home/steam/user.sh"]
-CMD ["arkmanager", "run"]
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["run"]
